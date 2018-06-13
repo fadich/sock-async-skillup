@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import traceback
+import threading
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
@@ -27,13 +28,6 @@ class Client(object):
         self.host = host
         self.msg_handler = msg_handler
         self.loop = asyncio.new_event_loop()
-
-    # def connect(self):
-    #     task = self.loop.create_task(self._init_connection())
-    #     self.loop.run_until_complete(task)
-        # self.loop.run_until_complete(self._init_connection())
-        # self.loop.run_in_executor(None, self._init_connection)
-        # asyncio.run_coroutine_threadsafe(self._init_connection(), self.loop)
 
     async def connect(self):
         self.session = aiohttp.ClientSession()
@@ -64,9 +58,11 @@ class Client(object):
 
 
 class Window(Gtk.ApplicationWindow):
-    scrolled: Gtk.ScrolledWindow
-    grid: Gtk.Grid
-    client: Client
+    scrolled: Gtk.ScrolledWindow = None
+    grid: Gtk.Grid = None
+    client: Client = None
+    event_loop: asyncio.BaseEventLoop = None
+    client_thread: threading.Thread = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,6 +74,7 @@ class Window(Gtk.ApplicationWindow):
         self.add(self.scrolled)
 
         self.client = Client(HOST_URL, self.msg_handler)
+        self.loop = asyncio.new_event_loop()
 
         self.connect('destroy', Gtk.main_quit)
         self.connect('destroy', self.close)
@@ -89,24 +86,17 @@ class Window(Gtk.ApplicationWindow):
 
         self.set_title('SimpleChat')
 
-        loop = asyncio.get_event_loop()
-        tasks = [
-            loop.create_task(self.client.connect()),
-            loop.create_task(Gtk.main()),
-        ]
+        thread = threading.Thread(target=self.loop.run_until_complete,
+                                  args=(self.client.connect(),))
+        thread.start()
 
-        wait_tasks = asyncio.wait(tasks)
-        loop.run_until_complete(wait_tasks)
+        Gtk.main()
 
     def close(self, window):
-        pass
-        # loop = asyncio.get_event_loop()
-        # tasks = [
-        #     loop.create_task(self.client.close()),
-        # ]
-        #
-        # wait_tasks = asyncio.wait(tasks)
-        # loop.run_until_complete(wait_tasks)
+        # self.client.loop.run_until_complete(self.client.close())
+
+        if self.client_thread and self.client_thread.is_alive():
+            self.client_thread.join()
 
     def msg_handler(self, *args, **kwargs):
         print(locals())

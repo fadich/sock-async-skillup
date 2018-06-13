@@ -79,7 +79,8 @@ async def handler(request):
                                 })), get_event_loop())
 
                 else:
-                    await ws.send_json(response('error', 'Unknown command <{}>'.format(cmd)))
+                    await ws.send_json(
+                        response('error', 'Unknown command <{}>'.format(cmd)))
 
     except CancelledError:
         pass

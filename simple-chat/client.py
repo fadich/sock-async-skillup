@@ -68,6 +68,7 @@ class Client(object):
             'd': data
         })
 
+
 class Window(Gtk.ApplicationWindow):
     scrolled: Gtk.ScrolledWindow = None
     grid: Gtk.Grid = None
@@ -112,7 +113,6 @@ class Window(Gtk.ApplicationWindow):
         # while True:
         #     time.sleep(1)
         #     self.send_msg('Hi!')
-
 
     def close(self, window):
         pass

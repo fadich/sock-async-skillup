@@ -7,7 +7,7 @@ import json
 import log
 
 
-logger = log.get_logger()
+logger = log.get_logger('Server')
 
 clients = {}
 profiles = {}
@@ -30,7 +30,7 @@ async def handler(request):
     ws = web.WebSocketResponse()
     client_id = uuid.uuid4().hex
 
-    print('New client <{}>'.format(client_id))
+    logger.info('New client <{}>'.format(client_id))
 
     await ws.prepare(request)
 
@@ -87,7 +87,7 @@ async def handler(request):
 
     del clients[client_id]
     del profiles[client_id]
-    print('Disconnected <{}>'.format(client_id))
+    logger.info('Disconnected <{}>'.format(client_id))
 
     await broadcast_profiles()
 

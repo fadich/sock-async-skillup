@@ -21,6 +21,22 @@ WINDOW_HEIGHT = 480
 logger = log.get_logger('Client')
 
 
+class AsyncThread(threading.Thread):
+    loop: asyncio.BaseEventLoop = None
+
+    def __init__(self, *args, **kwargs):
+        self.loop = asyncio.new_event_loop()
+
+        super().__init__(*args, **kwargs)
+
+        task = self.loop.create_task(
+            self._target(*self._args, **self._kwargs), )
+        wait_tasks = asyncio.wait([task])
+
+        self._target = self.loop.run_until_complete
+        self._args = (wait_tasks, )
+
+
 class Client(object):
     host: str = ''
     loop: asyncio.BaseEventLoop = None
@@ -31,29 +47,33 @@ class Client(object):
         self.host = host
         self.loop = asyncio.new_event_loop()
 
-    async def connect(self, msg_handler: callable):
+    async def connect(self, handle_msg: callable, on_connected: callable = None,
+                      autoreconnect: bool = True):
         self.session = aiohttp.ClientSession()
 
-        try:
-            while True:
-                try:
-                    logger.info('Connecting to <{}>...'.format(self.host))
-                    async with self.session.ws_connect(self.host) as self.ws:
-                        logger.info('Connected')
+        while True:
+            try:
+                logger.info('Connecting to <{}>...'.format(self.host))
+                self.ws = await self.session.ws_connect(self.host)
+                logger.info('Connected')
 
-                        async for msg in self.ws:
-                            if msg.type == aiohttp.WSMsgType.TEXT:
-                                msg_handler(msg)
-                except aiohttp.client_exceptions.ClientConnectorError:
-                    pass
-        except Exception as e:
-            logger.error(e)
-            logger.warning(traceback.format_exc())
-        finally:
-            if self.ws and not self.ws.closed:
-                await self.ws.close()
+                if on_connected:
+                    on_connected(self.session, self.ws)
 
-        await self.session.close()
+                async for msg in self.ws:
+                    await asyncio.sleep(0)
+                    handle_msg(msg)
+
+            except aiohttp.client_exceptions.ClientConnectorError:
+                if not autoreconnect:
+                    break
+                logger.info('Reconnecting...')
+                await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.error(e)
+                logger.warning(traceback.format_exc())
+                break
 
     async def close(self):
         if self.session and not self.session.closed:
@@ -100,9 +120,11 @@ class Window(Gtk.ApplicationWindow):
 
         self.set_title('SimpleChat')
 
-        thread = threading.Thread(target=self.loop.run_until_complete,
-                                  args=(self.client.connect(self.msg_handler),))
-        thread.start()
+        self.client_thread = AsyncThread(
+            target=self.client.connect,
+            args=(self.msg_handler, self.on_connected, ),)
+        client_thread.start()
+
         Gtk.main()
 
         # import time
@@ -115,11 +137,18 @@ class Window(Gtk.ApplicationWindow):
         #     self.send_msg('Hi!')
 
     def close(self, window):
-        pass
+        client_thread.stop()
+        # pass
         # self.client.loop.run_until_complete(self.client.close())
 
         # if self.client_thread and self.client_thread.is_alive():
         #     self.client_thread.join()
+
+    def on_connected(self, session: aiohttp.ClientSession,
+                     ws: aiohttp.ClientWebSocketResponse):
+
+        # self.send_profile('My name')
+        pass
 
     def send_msg(self, msg: str):
         self.client.loop.run_until_complete(
@@ -136,6 +165,9 @@ class Window(Gtk.ApplicationWindow):
             self.client.send_command('user_list'))
 
     def msg_handler(self, message):
+        if message.type != aiohttp.WSMsgType.TEXT:
+            return
+
         msg = json.loads(message.data)
         command = msg.get('c')
         data = msg.get('d')
@@ -149,7 +181,7 @@ class Window(Gtk.ApplicationWindow):
             user_id = data.get('user_id')
             body = data.get('body')
 
-            print('Message from <{} ({})>: {}'.format(
+            logger.info('Message from <{} ({})>: {}'.format(
                 self.clients[user_id].get('name', '-- noname --'),
                 user_id,
                 body

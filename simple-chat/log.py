@@ -15,5 +15,6 @@ def get_logger(name: str = None):
 
     logger = logging.getLogger(name)
     logger.addHandler(ch)
+    logger.setLevel(logging.DEBUG)
 
     return logger

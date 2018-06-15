@@ -57,6 +57,9 @@ async def handler(request):
                 if cmd == 'ping':
                     await ws.send_json(response('pong'))
 
+                elif cmd == 'client_id':
+                    await ws.send_json(response('client_id', client_id))
+
                 elif cmd == 'user_list':
                     await ws.send_json(response('user_list', profiles))
 

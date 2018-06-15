@@ -6,6 +6,7 @@ import json
 import traceback
 import threading
 import gi
+import sys
 
 gi.require_version('Gtk', '3.0')
 
@@ -14,8 +15,8 @@ from typing import Any
 
 
 HOST_URL = 'ws://127.0.0.1:4242'
-WINDOW_WIDTH = 640
-WINDOW_HEIGHT = 480
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 768
 
 
 logger = log.get_logger('Client')
@@ -50,44 +51,44 @@ class Client(object):
                       autoreconnect: bool = True):
         self.session = aiohttp.ClientSession()
 
-        while True:
-            try:
-                logger.info('Connecting to <{}>...'.format(self.host))
-                self.ws = await self.session.ws_connect(self.host)
-                logger.info('Connected')
+        try:
 
-                if on_connected:
-                    on_connected(self.session, self.ws)
+            while True:
+                try:
+                    logger.info('Connecting to <{}>...'.format(self.host))
+                    self.ws = await self.session.ws_connect(self.host)
+                    logger.info('Connected')
 
-                while True:
-                    try:
-                        msg = await self.ws.receive(timeout=0.01)
+                    if on_connected:
+                        on_connected(self.session, self.ws)
 
-                        if msg.type in (aiohttp.WSMsgType.CLOSED, ):
-                            break
+                    while True:
+                        try:
+                            msg = await self.ws.receive(timeout=0.01)
 
-                        handle_msg(msg)
-                    except asyncio.TimeoutError:
-                        pass
-                    finally:
-                        await asyncio.sleep(0)
+                            if msg.type in (aiohttp.WSMsgType.CLOSED, ):
+                                break
 
-            except aiohttp.client_exceptions.ClientConnectorError:
-                if not autoreconnect:
-                    break
-                logger.info('Reconnecting...')
-                await asyncio.sleep(1)
+                            handle_msg(msg)
+                        except asyncio.TimeoutError:
+                            pass
+                        finally:
+                            await asyncio.sleep(0)
+                except aiohttp.client_exceptions.ClientConnectorError:
+                    logger.warning('Connection error.')
+                    if not autoreconnect:
+                        break
 
-            except asyncio.CancelledError:
-                logger.info('Connection aborted.')
-                break
+                    logger.info('Reconnecting...')
+                    await asyncio.sleep(1.5)
 
-            except Exception as e:
-                logger.error(e)
-                logger.warning(traceback.format_exc())
-                break
-
-        await self.close()
+        except asyncio.CancelledError:
+            logger.info('Connection aborted.')
+        except Exception as e:
+            logger.error(e)
+            logger.warning(traceback.format_exc())
+        finally:
+            await self.close()
 
     async def close(self):
 
@@ -113,7 +114,9 @@ class Window(Gtk.ApplicationWindow):
     event_loop: asyncio.BaseEventLoop = None
     client_thread: AsyncThread = None
 
-    clients = {}
+    client_id: str = None
+    clients: dict = {}
+    profile: dict = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -144,41 +147,22 @@ class Window(Gtk.ApplicationWindow):
 
         Gtk.main()
 
-        # import time
-        #
-        # time.sleep(1)
-        # self.send_profile('My name')
-        #
-        # while True:
-        #     time.sleep(1)
-        #     self.send_msg('Hi!')
-
     def close(self, window):
-        self.client_thread.task.cancel()
-        # pass
-
-        # if self.client_thread and self.client_thread.is_alive():
-        #     self.client_thread.join()
+        pass
 
     def on_connected(self, session: aiohttp.ClientSession,
                      ws: aiohttp.ClientWebSocketResponse):
 
         self.send_profile('My name')
-        # pass
 
     def send_msg(self, msg: str):
-        self.client_thread.loop.run_until_complete(
-            self.client.send_command('msg', msg))
+        self._exec_command(self.client.send_command('msg', msg))
 
     def send_profile(self, name: str):
-        asyncio.run_coroutine_threadsafe(
-            self.client.send_command('profile', {
-                'name': name,
-            }), self.client_thread.loop)
+        self._exec_command(self.client.send_command('profile', {'name': name}))
 
     def send_user_list(self):
-        self.client_thread.loop.run_until_complete(
-            self.client.send_command('user_list'))
+        self._exec_command(self.client.send_command('user_list'))
 
     def msg_handler(self, message):
         if message.type != aiohttp.WSMsgType.TEXT:
@@ -190,6 +174,16 @@ class Window(Gtk.ApplicationWindow):
 
         if command == 'user_list':
             self.clients = data
+            logger.info('Clients: {}'.format(self.clients))
+
+        if command == 'profile':
+            self.profile = data
+            logger.info('Profile: {}'.format(self.profile))
+
+        if command == 'client_id':
+            self.client_id = data
+            logger.info('Client ID: {}'.format(self.client_id))
+
         elif command == 'msg':
             user_id = data.get('user_id')
             body = data.get('body')
@@ -200,6 +194,20 @@ class Window(Gtk.ApplicationWindow):
                 body
             ))
 
+    def _exec_command(self, coro: callable):
+        asyncio.run_coroutine_threadsafe(coro, self.client_thread.loop)
+
+
+def main():
+    window = Window()
+
+    try:
+        window.build()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        window.client_thread.task.cancel()
+
 
 if __name__ == '__main__':
-    Window().build()
+    sys.exit(main())

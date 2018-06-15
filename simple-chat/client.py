@@ -62,6 +62,10 @@ class Client(object):
                 while True:
                     try:
                         msg = await self.ws.receive(timeout=0.01)
+
+                        if msg.type in (aiohttp.WSMsgType.CLOSED, ):
+                            break
+
                         handle_msg(msg)
                     except asyncio.TimeoutError:
                         pass
@@ -167,10 +171,10 @@ class Window(Gtk.ApplicationWindow):
             self.client.send_command('msg', msg))
 
     def send_profile(self, name: str):
-        self.client_thread.loop.run_until_complete(
+        asyncio.run_coroutine_threadsafe(
             self.client.send_command('profile', {
                 'name': name,
-            }))
+            }), self.client_thread.loop)
 
     def send_user_list(self):
         self.client_thread.loop.run_until_complete(

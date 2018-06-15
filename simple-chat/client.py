@@ -121,11 +121,23 @@ class Window(Gtk.ApplicationWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scrolled = Gtk.ScrolledWindow()
         self.grid = Gtk.Grid()
+        self.scrolled = Gtk.ScrolledWindow()
 
-        self.scrolled.add(self.grid)
-        self.add(self.scrolled)
+        history = Gtk.Grid()
+        for i in range(50):
+            history.attach(Gtk.Label(label='123213'), 0, i * 50, 700, 50)
+
+        print(dir(self.scrolled))
+        self.scrolled.add(history)
+        # self.grid.attach(Gtk.Label(label='1231231'), 100, 500, 100, 100)
+        # self.grid.attach(Gtk.Label(label='1231231'), 200, 500, 100, 100)
+        # self.grid.attach(Gtk.Label(label='1231231'), 300, 500, 100, 100)
+        # self.grid.attach(Gtk.Label(label='1231231'), 400, 500, 100, 100)
+
+        self.grid.add(self.scrolled)
+        self.grid.add(Gtk.Label(label='123'))
+        self.add(self.grid)
 
         self.client = Client(HOST_URL)
         self.loop = asyncio.new_event_loop()
@@ -136,7 +148,7 @@ class Window(Gtk.ApplicationWindow):
     def build(self):
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
-        self.show()
+        self.show_all()
 
         self.set_title('SimpleChat')
 

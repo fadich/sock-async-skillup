@@ -2,6 +2,7 @@ from aiohttp import web
 from asyncio import CancelledError, get_event_loop, run_coroutine_threadsafe
 from typing import Any
 
+import sys
 import uuid
 import json
 import log
@@ -100,5 +101,12 @@ async def handler(request):
 app = web.Application()
 app.router.add_get('/', handler)
 
+
+def main(host: str = '127.0.0.1'):
+    web.run_app(app, host=host, port=4242)
+
+    return 0
+
+
 if __name__ == '__main__':
-    web.run_app(app, host='127.0.0.1', port=4242)
+    sys.exit(main(*sys.argv[1:]))

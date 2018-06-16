@@ -10,11 +10,10 @@ import sys
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 from typing import Any
 
 
-HOST_URL = 'ws://127.0.0.1:4242'
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 768
 
@@ -110,6 +109,9 @@ class Client(object):
 class Window(Gtk.ApplicationWindow):
     scrolled: Gtk.ScrolledWindow = None
     grid: Gtk.Grid = None
+    history: Gtk.Grid = None
+    toolbar: Gtk.Grid = None
+    entry: Gtk.Entry = None
     client: Client = None
     event_loop: asyncio.BaseEventLoop = None
     client_thread: AsyncThread = None
@@ -118,34 +120,46 @@ class Window(Gtk.ApplicationWindow):
     clients: dict = {}
     profile: dict = {}
 
-    def __init__(self, *args, **kwargs):
+    i = 25
+
+    def __init__(self, host: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.grid = Gtk.Grid()
         self.scrolled = Gtk.ScrolledWindow()
+        self.toolbar = Gtk.Grid()
+        self.entry = Gtk.Entry()
+        self.history = Gtk.Grid()
 
-        history = Gtk.Grid()
-        for i in range(50):
-            history.attach(Gtk.Label(label='123213'), 0, i * 50, 700, 50)
-
-        print(dir(self.scrolled))
-        self.scrolled.add(history)
-        # self.grid.attach(Gtk.Label(label='1231231'), 100, 500, 100, 100)
-        # self.grid.attach(Gtk.Label(label='1231231'), 200, 500, 100, 100)
-        # self.grid.attach(Gtk.Label(label='1231231'), 300, 500, 100, 100)
-        # self.grid.attach(Gtk.Label(label='1231231'), 400, 500, 100, 100)
-
-        self.grid.add(self.scrolled)
-        self.grid.add(Gtk.Label(label='123'))
-        self.add(self.grid)
-
-        self.client = Client(HOST_URL)
+        self.client = Client('ws://{}:4242'.format(host))
         self.loop = asyncio.new_event_loop()
+
+        self.history.override_background_color(Gtk.StateFlags.NORMAL,
+                                               Gdk.RGBA())
+
+        self.entry.connect('key-release-event', self.on_entry_key_event)
+
+        self.toolbar.attach(Gtk.Label('User list:'), 0, 0, 10, 10)
+        self.toolbar.attach(Gtk.Label('---\n---\n---\n---\n'), 0, 10, 50, 50)
+
+        self.scrolled.add(self.history)
+
+        self.grid.attach(self.scrolled, 0, 0, int(WINDOW_HEIGHT * .8),
+                         int(WINDOW_WIDTH * .85))
+        self.grid.attach(self.toolbar, int(WINDOW_WIDTH * .85), 0,
+                         int(WINDOW_HEIGHT * .6), int(WINDOW_WIDTH * .15))
+        self.grid.attach(self.entry, 0, WINDOW_HEIGHT * 2, WINDOW_WIDTH, 60)
+
+        self.add(self.grid)
 
         self.connect('destroy', Gtk.main_quit)
         self.connect('destroy', self.close)
 
     def build(self):
+        self.scrolled.set_min_content_height(int(WINDOW_HEIGHT * .8))
+        self.scrolled.set_min_content_width(int(WINDOW_WIDTH * .85))
+        self.scrolled.set_max_content_width(int(WINDOW_WIDTH * .85))
+
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.show_all()
@@ -159,8 +173,25 @@ class Window(Gtk.ApplicationWindow):
 
         Gtk.main()
 
+    def on_entry_key_event(self, entry, ev, data=None):
+        if ev.keyval == Gdk.KEY_Return:
+            self.send_msg(entry.get_text())
+            self.append_history(self.profile.get('name'),
+                                entry.get_text(), False)
+
+            entry.set_text('')
+
     def close(self, window):
         pass
+
+    def append_history(self, user: str, msg: str, left: bool = True):
+        self.i += 25
+
+        label = Gtk.Label(label='{}:\n{}\n'.format(
+            '{}{}'.format(user, (' (me)', '')[left]), msg))
+        label.show()
+        # label.set_xalign(500)
+        self.history.attach(label, 100, self.i, 1000, 10)
 
     def on_connected(self, session: aiohttp.ClientSession,
                      ws: aiohttp.ClientWebSocketResponse):
@@ -200,6 +231,10 @@ class Window(Gtk.ApplicationWindow):
             user_id = data.get('user_id')
             body = data.get('body')
 
+            self.append_history(
+                self.clients.get(user_id, {}).get('name', user_id),
+                body)
+
             logger.info('Message from <{} ({})>: {}'.format(
                 self.clients[user_id].get('name', '-- noname --'),
                 user_id,
@@ -210,8 +245,8 @@ class Window(Gtk.ApplicationWindow):
         asyncio.run_coroutine_threadsafe(coro, self.client_thread.loop)
 
 
-def main():
-    window = Window()
+def main(host: str = '127.0.0.1'):
+    window = Window(host)
 
     try:
         window.build()
@@ -222,4 +257,4 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(*sys.argv[1:]))

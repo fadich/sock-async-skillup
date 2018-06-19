@@ -158,7 +158,7 @@ class Window(Gtk.ApplicationWindow):
     def build(self):
         self.scrolled.set_min_content_height(int(WINDOW_HEIGHT * .8))
         self.scrolled.set_min_content_width(int(WINDOW_WIDTH * .85))
-        self.scrolled.set_max_content_width(int(WINDOW_WIDTH * .85))
+        # self.scrolled.set_max_content_width(int(WINDOW_WIDTH * .85))
 
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -246,14 +246,20 @@ class Window(Gtk.ApplicationWindow):
 
 
 def main(host: str = '127.0.0.1'):
-    window = Window(host)
+    builder = Gtk.Builder()
+    builder.add_from_file('client.glade')
+
+    appwin = builder.get_object('appwin')
+    appwin.show_all()
+    appwin.connect('destroy', Gtk.main_quit)
 
     try:
-        window.build()
+        Gtk.main()
     except KeyboardInterrupt:
         pass
     finally:
-        window.client_thread.task.cancel()
+        pass
+        # window.client_thread.task.cancel()
 
 
 if __name__ == '__main__':

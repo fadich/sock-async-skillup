@@ -158,7 +158,7 @@ class Window(Gtk.ApplicationWindow):
     def build(self):
         self.scrolled.set_min_content_height(int(WINDOW_HEIGHT * .8))
         self.scrolled.set_min_content_width(int(WINDOW_WIDTH * .85))
-        self.scrolled.set_max_content_width(int(WINDOW_WIDTH * .85))
+        # self.scrolled.set_max_content_width(int(WINDOW_WIDTH * .85))
 
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -246,14 +246,71 @@ class Window(Gtk.ApplicationWindow):
 
 
 def main(host: str = '127.0.0.1'):
-    window = Window(host)
+    builder = Gtk.Builder()
+    builder.add_from_file('client.glade')
+
+    history = builder.get_object('history')
+
+    msg = Gtk.Label('The guy')
+    msg.set_line_wrap(True)
+    msg.set_alignment(0, 0)
+    msg.set_margin_left(10)
+    history.add(msg)
+    msg = Gtk.Label('Hello!')
+    msg.set_line_wrap(True)
+    msg.set_alignment(0, 0)
+    msg.set_margin_left(20)
+    msg.set_margin_bottom(10)
+    history.add(msg)
+
+    msg = Gtk.Label('The guy')
+    msg.set_line_wrap(True)
+    msg.set_alignment(0, 0)
+    msg.set_margin_left(10)
+    history.add(msg)
+    msg = Gtk.Label('Whats up?')
+    msg.set_line_wrap(True)
+    msg.set_alignment(0, 0)
+    msg.set_margin_left(20)
+    msg.set_margin_bottom(10)
+    history.add(msg)
+
+    msg = Gtk.Label('Me')
+    msg.set_line_wrap(True)
+    msg.set_alignment(1, 0)
+    msg.set_margin_right(10)
+    history.add(msg)
+    msg = Gtk.Label('Hi, fine!')
+    msg.set_line_wrap(True)
+    msg.set_alignment(1, 0)
+    msg.set_margin_right(10)
+    msg.set_margin_bottom(10)
+    history.add(msg)
+
+    msg = Gtk.Label('Me')
+    msg.set_line_wrap(True)
+    msg.set_alignment(1, 0)
+    msg.set_margin_right(10)
+    history.add(msg)
+    msg = Gtk.Label('Very long message... ' * 10)
+    msg.set_line_wrap(True)
+    msg.set_alignment(1, 0)
+    msg.set_margin_right(10)
+    msg.set_margin_bottom(10)
+    history.add(msg)
+
+    appwin = builder.get_object('appwin')
+    appwin.set_title('SimpleChat')
+    appwin.show_all()
+    appwin.connect('destroy', Gtk.main_quit)
 
     try:
-        window.build()
+        Gtk.main()
     except KeyboardInterrupt:
         pass
     finally:
-        window.client_thread.task.cancel()
+        pass
+        # window.client_thread.task.cancel()
 
 
 if __name__ == '__main__':

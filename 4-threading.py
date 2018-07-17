@@ -32,6 +32,13 @@ class AsyncThread(Thread):
 
 
 if __name__ == '__main__':
+
+    loop = asyncio.new_event_loop()
+    task = loop.create_task(some(5))
+    wt = asyncio.wait([task])
+
+    t5 = Thread(target=loop.run_until_complete, args=(wt, ))
+
     th1 = AsyncThread(target=some, args=(1, ))
     th2 = AsyncThread(target=some, args=(2, ))
     th3 = AsyncThread(target=some, args=(3, ))
@@ -42,6 +49,8 @@ if __name__ == '__main__':
     th3.start()
     th4.start()
 
+    t5.start()
+
     try:
         while 1:
             pass
@@ -50,3 +59,5 @@ if __name__ == '__main__':
         th2.join()
         th3.join()
         th4.join()
+
+        task.cancel()
